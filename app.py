@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import joblib
@@ -5,6 +6,7 @@ import json
 import os
 import sys
 import sklearn
+import numpy as np
 
 st.set_page_config(
     page_title="GeneScreen AI",
@@ -14,106 +16,161 @@ st.set_page_config(
 
 st.title("🧬 GeneScreen AI")
 st.subheader("Genetic Disorder Subclass Screening System")
+
 st.write("Python version:", sys.version)
 st.write("Scikit-learn version:", sklearn.__version__)
 st.write("Joblib version:", joblib.__version__)
+st.write("NumPy version:", np.__version__)
+
 st.write(
     "Research demonstration for predicting a dataset label "
     "using machine learning. This is not a medical diagnosis."
 )
 
-# Load saved models and feature information
 MODEL_DIR = "models"
+
+
+# Test saved files separately to identify loading errors
+st.markdown("### Model File Diagnostics")
+
+required_files = [
+    "linear_svm.joblib",
+    "polynomial_svm.joblib",
+    "rbf_svm.joblib",
+    "label_encoder.joblib",
+    "feature_schema.json"
+]
+
+files_ok = True
+
+for filename in required_files:
+    path = os.path.join(MODEL_DIR, filename)
+
+    if os.path.isfile(path):
+        st.success(
+            f"{filename} found "
+            f"({os.path.getsize(path)} bytes)"
+        )
+    else:
+        st.error(f"{filename} is missing")
+        files_ok = False
+
 
 @st.cache_resource
 def load_files():
-    models = {
-        "Linear SVM": joblib.load(
-            os.path.join(MODEL_DIR, "linear_svm.joblib")
-        ),
-        "Polynomial SVM": joblib.load(
-            os.path.join(MODEL_DIR, "polynomial_svm.joblib")
-        ),
-        "RBF SVM": joblib.load(
-            os.path.join(MODEL_DIR, "rbf_svm.joblib")
-        )
+    models = {}
+
+    model_files = {
+        "Linear SVM": "linear_svm.joblib",
+        "Polynomial SVM": "polynomial_svm.joblib",
+        "RBF SVM": "rbf_svm.joblib"
     }
 
-    with open(os.path.join(MODEL_DIR, "feature_schema.json")) as f:
-        features = json.load(f)
+    for model_name, filename in model_files.items():
+        path = os.path.join(MODEL_DIR, filename)
+        models[model_name] = joblib.load(path)
+
+    with open(
+        os.path.join(MODEL_DIR, "feature_schema.json"),
+        "r"
+    ) as file:
+        features = json.load(file)
 
     encoder = joblib.load(
         os.path.join(MODEL_DIR, "label_encoder.joblib")
     )
 
     return models, features, encoder
-    import numpy as np
 
-st.write("NumPy version:", np.__version__)
 
-st.write("Model file sizes:")
-for filename in [
-    "linear_svm.joblib",
-    "polynomial_svm.joblib",
-    "rbf_svm.joblib",
-    "label_encoder.joblib"
-]:
-    path = os.path.join("models", filename)
-    st.write(filename, os.path.getsize(path), "bytes")
-
-st.write("Testing each model separately:")
-for filename in [
-    "linear_svm.joblib",
-    "polynomial_svm.joblib",
-    "rbf_svm.joblib",
-    "label_encoder.joblib"
-]:
-    try:
-        joblib.load(os.path.join("models", filename))
-        st.success(filename + " loaded successfully")
-    except Exception as error:
-        st.error(filename + " failed")
-        st.exception(error)
-
+# Load models
 try:
+    if not files_ok:
+        st.stop()
+
     models, features, encoder = load_files()
 
-    st.success("Models loaded successfully!")
+    st.success("All models loaded successfully!")
 
-    st.markdown("### Enter the sample details")
+except Exception as error:
+    st.error("Model loading failed.")
+    st.write("Exact error details:")
+    st.exception(error)
 
-    # The trained model expects 82 encoded features.
-    # Ask for the original dataset's feature values in a simple form.
-    age = st.number_input("Patient Age", min_value=0, max_value=120, value=10)
-    blood_count = st.number_input(
-        "Blood cell count (mcL)", min_value=0.0,
-        max_value=20.0, value=4.7
+    st.info(
+        "Please share this error message so the model "
+        "compatibility issue can be fixed."
     )
-    gender = st.selectbox("Gender", ["Female", "Male", "Other"])
-    maternal_gene = st.selectbox("Maternal gene", ["Yes", "No", "Unknown"])
-    paternal_gene = st.selectbox("Paternal gene", ["Yes", "No", "Unknown"])
-    inherited = st.selectbox(
-        "Inherited from father", ["Yes", "No", "Unknown"]
+    st.stop()
+
+
+# Prediction interface
+st.markdown("## Enter Sample Details")
+
+age = st.number_input(
+    "Patient Age",
+    min_value=0,
+    max_value=120,
+    value=10
+)
+
+blood_count = st.number_input(
+    "Blood cell count (mcL)",
+    min_value=0.0,
+    max_value=20.0,
+    value=4.7
+)
+
+gender = st.selectbox(
+    "Gender",
+    ["Female", "Male", "Other"]
+)
+
+maternal_gene = st.selectbox(
+    "Maternal gene",
+    ["Yes", "No", "Unknown"]
+)
+
+paternal_gene = st.selectbox(
+    "Paternal gene",
+    ["Yes", "No", "Unknown"]
+)
+
+inherited = st.selectbox(
+    "Inherited from father",
+    ["Yes", "No", "Unknown"]
+)
+
+symptoms = {}
+
+for i in range(1, 6):
+    symptoms[f"Symptom {i}"] = st.selectbox(
+        f"Symptom {i}",
+        [0, 1],
+        index=0
     )
 
-    symptoms = {}
-    for i in range(1, 6):
-        symptoms[f"Symptom {i}"] = st.selectbox(
-            f"Symptom {i}", [0, 1], index=0
+model_choice = st.selectbox(
+    "Choose SVM model",
+    list(models.keys())
+)
+
+if st.button("Predict Subclass", type="primary"):
+
+    try:
+        sample = pd.DataFrame(
+            0,
+            index=[0],
+            columns=features
         )
 
-    model_choice = st.selectbox(
-        "Choose SVM model", list(models.keys())
-    )
+        # Fill numerical inputs only if columns exist
+        if "Patient Age" in sample.columns:
+            sample["Patient Age"] = age
 
-    if st.button("Predict Subclass", type="primary"):
-        # Create an all-zero feature row, then fill the fields provided.
-        sample = pd.DataFrame(0, index=[0], columns=features)
+        if "Blood cell count (mcL)" in sample.columns:
+            sample["Blood cell count (mcL)"] = blood_count
 
-        sample["Patient Age"] = age
-        sample["Blood cell count (mcL)"] = blood_count
-
-        # Match the categorical one-hot columns created during training.
         categorical_values = {
             "Gender": gender,
             "Maternal gene": maternal_gene,
@@ -123,6 +180,7 @@ try:
 
         for column, value in categorical_values.items():
             encoded_column = f"{column}_{value}"
+
             if encoded_column in sample.columns:
                 sample.loc[0, encoded_column] = 1
 
@@ -131,25 +189,21 @@ try:
                 sample.loc[0, column] = value
 
         prediction = models[model_choice].predict(sample)[0]
-        subclass = encoder.inverse_transform([prediction])[0]
 
-        st.markdown("### Prediction result")
+        subclass = encoder.inverse_transform(
+            [prediction]
+        )[0]
+
+        st.markdown("### Prediction Result")
         st.info(f"Predicted dataset subclass: **{subclass}**")
+
         st.warning(
-            "This is an experimental machine-learning prediction, "
-            "not a diagnosis. Consult a qualified healthcare professional "
-            "for medical assessment."
+            "This is an experimental research demonstration, "
+            "not a medical diagnosis. Its predictions may be "
+            "inaccurate. Consult a qualified healthcare "
+            "professional for medical assessment."
         )
 
-except Exception as e:
-    st.error("Could not load the saved model files.")
-    st.write("Exact error:")
-    st.exception(e)
-
-    st.write("Files found in repository:")
-    st.write(os.listdir("."))
-    st.write("Files inside models folder:")
-    if os.path.isdir("models"):
-        st.write(os.listdir("models"))
-    else:
-        st.error("The models folder was not found.")
+    except Exception as error:
+        st.error("Prediction failed.")
+        st.exception(error)
