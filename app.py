@@ -3,6 +3,8 @@ import pandas as pd
 import joblib
 import json
 import os
+import sys
+import sklearn
 
 st.set_page_config(
     page_title="GeneScreen AI",
@@ -12,6 +14,9 @@ st.set_page_config(
 
 st.title("🧬 GeneScreen AI")
 st.subheader("Genetic Disorder Subclass Screening System")
+st.write("Python version:", sys.version)
+st.write("Scikit-learn version:", sklearn.__version__)
+st.write("Joblib version:", joblib.__version__)
 st.write(
     "Research demonstration for predicting a dataset label "
     "using machine learning. This is not a medical diagnosis."
