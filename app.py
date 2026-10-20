@@ -111,5 +111,13 @@ try:
 
 except Exception as e:
     st.error("Could not load the saved model files.")
-    st.write("Check that the models folder contains all required files.")
-    st.code(str(e))
+    st.write("Exact error:")
+    st.exception(e)
+
+    st.write("Files found in repository:")
+    st.write(os.listdir("."))
+    st.write("Files inside models folder:")
+    if os.path.isdir("models"):
+        st.write(os.listdir("models"))
+    else:
+        st.error("The models folder was not found.")
