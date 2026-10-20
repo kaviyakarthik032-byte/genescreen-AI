@@ -47,6 +47,33 @@ def load_files():
     )
 
     return models, features, encoder
+    import numpy as np
+
+st.write("NumPy version:", np.__version__)
+
+st.write("Model file sizes:")
+for filename in [
+    "linear_svm.joblib",
+    "polynomial_svm.joblib",
+    "rbf_svm.joblib",
+    "label_encoder.joblib"
+]:
+    path = os.path.join("models", filename)
+    st.write(filename, os.path.getsize(path), "bytes")
+
+st.write("Testing each model separately:")
+for filename in [
+    "linear_svm.joblib",
+    "polynomial_svm.joblib",
+    "rbf_svm.joblib",
+    "label_encoder.joblib"
+]:
+    try:
+        joblib.load(os.path.join("models", filename))
+        st.success(filename + " loaded successfully")
+    except Exception as error:
+        st.error(filename + " failed")
+        st.exception(error)
 
 try:
     models, features, encoder = load_files()
